@@ -1,0 +1,109 @@
+import React from 'react';
+
+export type SubjectId = 'sprachen' | 'mathe' | 'physik';
+
+interface SubjectRegisterProps {
+  selected: SubjectId;
+  onChange: (id: SubjectId) => void;
+}
+
+interface SubjectDef {
+  id: SubjectId;
+  label: string;
+  short: string;
+  accent: string;
+}
+
+const SUBJECTS: SubjectDef[] = [
+  {
+    id: 'sprachen',
+    label: 'Sprachen',
+    short: 'SP',
+    accent: 'from-emerald-400/80 to-emerald-500/90',
+  },
+  {
+    id: 'mathe',
+    label: 'Mathe',
+    short: 'MA',
+    accent: 'from-sky-400/80 to-sky-500/90',
+  },
+  {
+    id: 'physik',
+    label: 'Physik',
+    short: 'PH',
+    accent: 'from-violet-400/80 to-violet-500/90',
+  },
+];
+
+export const SubjectRegister: React.FC<SubjectRegisterProps> = ({
+  selected,
+  onChange,
+}) => {
+  return (
+    <aside className="relative flex h-screen w-28 flex-col items-stretch border-r border-slate-900/90 bg-slate-950/95">
+      <div className="absolute inset-y-0 right-0 w-px bg-slate-800/80" />
+
+      <div className="flex-1 flex flex-col items-stretch gap-2 px-2 py-4">
+        <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500/80">
+          Fächer
+        </p>
+
+        {SUBJECTS.map((subject) => {
+          const isActive = subject.id === selected;
+
+          return (
+            <button
+              key={subject.id}
+              type="button"
+              onClick={() => onChange(subject.id)}
+              className={[
+                'group relative flex w-full flex-col items-stretch rounded-r-2xl border-l-4 px-2 py-2 text-left transition',
+                isActive
+                  ? 'border-l-emerald-400/90 bg-slate-900/95 shadow-[8px_0_40px_rgba(15,23,42,0.9)]'
+                  : 'border-l-slate-700/60 bg-slate-950/0 hover:border-l-emerald-400/70 hover:bg-slate-900/70',
+              ].join(' ')}
+            >
+              <div
+                className={[
+                  'pointer-events-none absolute inset-y-1 -left-1 w-1 rounded-r-full bg-gradient-to-b opacity-80',
+                  subject.accent,
+                  isActive ? 'shadow-[6px_0_18px_rgba(16,185,129,0.7)]' : '',
+                ].join(' ')}
+              />
+
+              <div className="flex items-center justify-between gap-1">
+                <span className="rounded-md border border-slate-700/70 bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.18em] text-slate-300/90">
+                  {subject.short}
+                </span>
+              </div>
+              <span
+                className={[
+                  'mt-1 text-[11px] font-medium',
+                  isActive ? 'text-slate-50' : 'text-slate-400/85',
+                ].join(' ')}
+              >
+                {subject.label}
+              </span>
+              <span className="mt-0.5 text-[9px] text-slate-500/80">
+                {subject.id === 'sprachen'
+                  ? 'RubyLingua To-Go'
+                  : subject.id === 'mathe'
+                  ? 'Aufgaben & Lösungen'
+                  : 'Experimente & Beispiele'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-slate-900/80 px-3 py-3 text-[9px] text-slate-500/80">
+        <p className="font-semibold uppercase tracking-[0.18em] text-slate-400/80">
+          Modus
+        </p>
+        <p className="mt-0.5 text-[9px] text-slate-500/85">
+          To-Go Szenarien zuerst · Schulmodus folgt.
+        </p>
+      </div>
+    </aside>
+  );
+};

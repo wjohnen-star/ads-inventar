@@ -1,7 +1,7 @@
 // src/App.jsx
 import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabaseClient';
-import { QRCodeCanvas } from 'qrcode.react';
+import JasonCodePanel from './inventory/JasonCodePanel';
 
 // Hilfsfunktion: Boxnummer aus URL (?box=91) lesen
 function getInitialBoxNoFromUrl() {
@@ -42,7 +42,7 @@ function App() {
   const [newItemName, setNewItemName] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
-  const [newItemExactPosition, setNewItemExactPosition] = useState(''); // Regal 4, erste Reihe
+  const [newItemExactPosition, setNewItemExactPosition] = useState('');
   const [newItemPhotoFile, setNewItemPhotoFile] = useState(null);
   const [savingItem, setSavingItem] = useState(false);
 
@@ -50,25 +50,7 @@ function App() {
   const [moveItemBoxId, setMoveItemBoxId] = useState(null);
   const [moveSaving, setMoveSaving] = useState(false);
 
-  // Responsive + QR-Base-URL
-  const [isMobile, setIsMobile] = useState(
-    typeof window !== 'undefined' ? window.innerWidth < 768 : false
-  );
-  const [baseUrl, setBaseUrl] = useState('');
-
   const initialBoxNo = getInitialBoxNoFromUrl();
-
-  // Basis URL + Resize-Handler
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setBaseUrl(window.location.origin);
-    }
-    function handleResize() {
-      setIsMobile(window.innerWidth < 768);
-    }
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // ---------------------------
   // Boxen laden
@@ -175,7 +157,7 @@ function App() {
   }, [view]);
 
   // ---------------------------
-  // Neues Item in die ausgewählte Box speichern
+  // Neues Item in die ausgewählte Box speichern (inkl. Foto)
   // ---------------------------
   async function handleAddItem(e) {
     e.preventDefault();
@@ -267,7 +249,6 @@ function App() {
       return;
     }
 
-    // Bewegung loggen
     const { error: moveError } = await supabase.from('item_movements').insert({
       item_id: item.id,
       from_box_id: item.box_id,
@@ -278,10 +259,8 @@ function App() {
 
     if (moveError) {
       console.error(moveError);
-      // Fehler beim Loggen ist nicht kritisch
     }
 
-    // UI aktualisieren
     setBoxItems((prev) => prev.filter((x) => x.id !== item.id));
 
     if (view === 'out') {
@@ -325,7 +304,6 @@ function App() {
       return;
     }
 
-    // Bewegung loggen
     const { error: moveError } = await supabase.from('item_movements').insert({
       item_id: item.id,
       from_box_id: item.box_id,
@@ -338,7 +316,6 @@ function App() {
       console.error(moveError);
     }
 
-    // UI aktualisieren
     setOutItems((prev) => prev.filter((x) => x.id !== item.id));
 
     if (selectedBox && selectedBox.id === targetBox.id) {
@@ -376,7 +353,7 @@ function App() {
     const { data, error } = await supabase
       .from('items')
       .select(
-        'id, name, box_id, box_no, location, category, quantity, exact_position, is_out'
+        'id, name, box_id, box_no, location, category, quantity, exact_position, is_out, photo_url'
       )
       .ilike('name', `%${term}%`)
       .order('box_no', { ascending: true });
@@ -516,11 +493,9 @@ function App() {
         {view === 'boxes' && (
           <div
             style={{
-              display: isMobile ? 'block' : 'grid',
-              gridTemplateColumns: isMobile
-                ? undefined
-                : 'minmax(0, 1.1fr) minmax(0, 1.6fr)',
-              gap: isMobile ? 0 : 12,
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1.6fr)',
+              gap: 12,
             }}
           >
             {/* Box-Liste */}
@@ -555,13 +530,15 @@ function App() {
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
                   width: '100%',
+                  maxWidth: 320,
                   padding: '6px 10px',
-                  marginBottom: 8,
+                  margin: '0 auto 8px',
                   borderRadius: 8,
                   border: '1px solid rgba(148,163,184,0.7)',
                   background: 'rgba(15,23,42,0.9)',
                   color: '#e5e7eb',
                   fontSize: 13,
+                  display: 'block',
                 }}
               />
 
@@ -572,7 +549,7 @@ function App() {
               ) : (
                 <div
                   style={{
-                    maxHeight: isMobile ? '40vh' : '60vh',
+                    maxHeight: '60vh',
                     overflowY: 'auto',
                     paddingRight: 4,
                   }}
@@ -653,81 +630,67 @@ function App() {
                 borderRadius: 16,
                 padding: 12,
                 border: '1px solid rgba(148,163,184,0.6)',
-                marginTop: isMobile ? 12 : 0,
               }}
             >
               {selectedBox ? (
                 <>
-                  <div style={{ marginBottom: 10 }}>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        opacity: 0.7,
-                        marginBottom: 2,
-                      }}
-                    >
-                      Ausgewählte Box
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 600,
-                        marginBottom: 2,
-                      }}
-                    >
-                      Box {selectedBox.box_no}{' '}
-                      {selectedBox.label ? `– ${selectedBox.label}` : ''}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 12,
-                        opacity: 0.75,
-                      }}
-                    >
-                      {selectedBox.location || 'Ort unbekannt'}
-                      {selectedBox.category ? ` · ${selectedBox.category}` : ''}
-                    </div>
-                  </div>
-
-                  {/* QR-Code für diese Box */}
-                  {baseUrl && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        marginBottom: 8,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 12,
-                        flexWrap: 'wrap',
-                      }}
-                    >
+                  {/* Header mit Box-Infos & evtl. Foto */}
+                  <div
+                    style={{
+                      marginBottom: 10,
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: 12,
+                    }}
+                  >
+                    <div>
                       <div
                         style={{
-                          fontSize: 11,
+                          fontSize: 12,
                           opacity: 0.7,
+                          marginBottom: 2,
                         }}
                       >
-                        QR-Code für diese Box – mit dem Handy scannen:
+                        Ausgewählte Box
                       </div>
                       <div
                         style={{
-                          padding: 6,
-                          borderRadius: 12,
-                          background: 'rgba(15,23,42,0.9)',
-                          border: '1px solid rgba(148,163,184,0.6)',
+                          fontSize: 18,
+                          fontWeight: 600,
+                          marginBottom: 2,
                         }}
                       >
-                        <QRCodeCanvas
-  value={`${window.location.origin}?box=${selectedBox.box_no}`}
-  size={96}           // Größe des Codes
-  bgColor="#ffffff"   // Hintergrund: weiß
-  fgColor="#000000"   // Vordergrund: schwarz
-  level="M"
-  includeMargin={false}
-/>
+                        Box {selectedBox.box_no}{' '}
+                        {selectedBox.label ? `– ${selectedBox.label}` : ''}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          opacity: 0.75,
+                        }}
+                      >
+                        {selectedBox.location || 'Ort unbekannt'}
+                        {selectedBox.category
+                          ? ` · ${selectedBox.category}`
+                          : ''}
                       </div>
                     </div>
-                  )}
+                    {selectedBox.photo_url && (
+                      <img
+                        src={selectedBox.photo_url}
+                        alt={`Box ${selectedBox.box_no}`}
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 12,
+                          objectFit: 'cover',
+                          border: '1px solid rgba(148,163,184,0.8)',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </div>
 
                   {/* Inhalt */}
                   <div style={{ marginTop: 4, marginBottom: 8 }}>
@@ -775,48 +738,75 @@ function App() {
                               background: 'rgba(15,23,42,0.85)',
                               border: '1px solid rgba(30,64,175,0.6)',
                               marginBottom: 4,
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              gap: 8,
                             }}
                           >
-                            <div>
-                              <div
-                                style={{
-                                  fontWeight: 500,
-                                  fontSize: 13,
-                                }}
-                              >
-                                {item.name}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 11,
-                                  opacity: 0.7,
-                                }}
-                              >
-                                Menge: {item.quantity || 1}
-                                {item.category ? ` · ${item.category}` : ''}
-                                {item.exact_position
-                                  ? ` · Pos: ${item.exact_position}`
-                                  : ''}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleTakeOut(item)}
+                            <div
                               style={{
-                                border: 'none',
-                                borderRadius: 999,
-                                padding: '4px 10px',
-                                fontSize: 11,
-                                cursor: 'pointer',
-                                background: 'rgba(248,113,113,0.9)',
-                                color: '#0f172a',
-                                alignSelf: 'center',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                                alignItems: 'center',
                               }}
                             >
-                              Rausnehmen
-                            </button>
+                              <div>
+                                <div
+                                  style={{
+                                    fontWeight: 500,
+                                    fontSize: 13,
+                                  }}
+                                >
+                                  {item.name}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: 11,
+                                    opacity: 0.7,
+                                  }}
+                                >
+                                  Menge: {item.quantity || 1}
+                                  {item.category ? ` · ${item.category}` : ''}
+                                  {item.exact_position
+                                    ? ` · Pos: ${item.exact_position}`
+                                    : ''}
+                                </div>
+                              </div>
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 8,
+                                }}
+                              >
+                                {item.photo_url && (
+                                  <img
+                                    src={item.photo_url}
+                                    alt={item.name}
+                                    style={{
+                                      width: 40,
+                                      height: 40,
+                                      borderRadius: 6,
+                                      objectFit: 'cover',
+                                      border:
+                                        '1px solid rgba(148,163,184,0.7)',
+                                    }}
+                                  />
+                                )}
+                                <button
+                                  onClick={() => handleTakeOut(item)}
+                                  style={{
+                                    border: 'none',
+                                    borderRadius: 999,
+                                    padding: '4px 10px',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    background: 'rgba(248,113,113,0.9)',
+                                    color: '#0f172a',
+                                  }}
+                                >
+                                  Rausnehmen
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -915,25 +905,52 @@ function App() {
                           }}
                         />
                       </div>
-                      <div>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            setNewItemPhotoFile(file);
-                          }}
+
+                      {/* Rechte Spalte: schmale Foto-Fläche + Button */}
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                          gap: 4,
+                        }}
+                      >
+                        <label
                           style={{
+                            display: 'block',
                             width: '100%',
-                            marginBottom: 4,
+                            maxWidth: 220,
+                            padding: '8px 10px',
+                            borderRadius: 8,
+                            border:
+                              '1px dashed rgba(148,163,184,0.8)',
+                            background: 'rgba(15,23,42,0.9)',
+                            color: '#e5e7eb',
                             fontSize: 12,
+                            textAlign: 'center',
+                            cursor: 'pointer',
                           }}
-                        />
+                        >
+                          {newItemPhotoFile
+                            ? `Foto: ${newItemPhotoFile.name}`
+                            : 'Foto hinzufügen (optional)'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              setNewItemPhotoFile(file);
+                            }}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+
                         <button
                           type="submit"
                           disabled={savingItem}
                           style={{
                             width: '100%',
+                            maxWidth: 220,
                             marginTop: 4,
                             padding: '6px 8px',
                             borderRadius: 999,
@@ -950,6 +967,16 @@ function App() {
                       </div>
                     </form>
                   </div>
+
+                  {/* Jasoncode-Panel: hier fühlt es sich an, als würde Jason direkt in die DB schreiben */}
+                  <JasonCodePanel
+                    boxId={selectedBox.id}
+                    boxLabel={
+                      `Box ${selectedBox.box_no}${
+                        selectedBox.label ? ` – ${selectedBox.label}` : ''
+                      }`
+                    }
+                  />
                 </>
               ) : (
                 <div>Keine Box ausgewählt.</div>
@@ -1068,59 +1095,85 @@ function App() {
                       background: 'rgba(15,23,42,0.85)',
                       border: '1px solid rgba(30,64,175,0.6)',
                       marginBottom: 4,
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 8,
                     }}
                   >
-                    <div>
-                      <div
-                        style={{
-                          fontWeight: 500,
-                          fontSize: 13,
-                        }}
-                      >
-                        {item.name}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          opacity: 0.7,
-                        }}
-                      >
-                        Menge: {item.quantity || 1}
-                        {item.category ? ` · ${item.category}` : ''}
-                        {item.exact_position
-                          ? ` · Pos: ${item.exact_position}`
-                          : ''}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          opacity: 0.7,
-                        }}
-                      >
-                        Letzte Box:{' '}
-                        {item.box_no ? `Box ${item.box_no}` : 'unbekannt'} ·{' '}
-                        {item.location || 'Ort unbekannt'}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleMoveBack(item)}
-                      disabled={moveSaving}
+                    <div
                       style={{
-                        border: 'none',
-                        borderRadius: 999,
-                        padding: '4px 10px',
-                        fontSize: 11,
-                        cursor: 'pointer',
-                        background: 'rgba(34,197,94,0.9)',
-                        color: '#022c22',
-                        alignSelf: 'center',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                        alignItems: 'center',
                       }}
                     >
-                      {moveSaving ? 'Wird verschoben…' : 'In Box legen'}
-                    </button>
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: 500,
+                            fontSize: 13,
+                          }}
+                        >
+                          {item.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            opacity: 0.7,
+                          }}
+                        >
+                          Menge: {item.quantity || 1}
+                          {item.category ? ` · ${item.category}` : ''}
+                          {item.exact_position
+                            ? ` · Pos: ${item.exact_position}`
+                            : ''}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            opacity: 0.7,
+                          }}
+                        >
+                          Letzte Box:{' '}
+                          {item.box_no ? `Box ${item.box_no}` : 'unbekannt'} ·{' '}
+                          {item.location || 'Ort unbekannt'}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 8,
+                        }}
+                      >
+                        {item.photo_url && (
+                          <img
+                            src={item.photo_url}
+                            alt={item.name}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 6,
+                              objectFit: 'cover',
+                              border: '1px solid rgba(148,163,184,0.7)',
+                            }}
+                          />
+                        )}
+                        <button
+                          onClick={() => handleMoveBack(item)}
+                          disabled={moveSaving}
+                          style={{
+                            border: 'none',
+                            borderRadius: 999,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            background: 'rgba(34,197,94,0.9)',
+                            color: '#022c22',
+                          }}
+                        >
+                          {moveSaving ? 'Wird verschoben…' : 'In Box legen'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1158,6 +1211,7 @@ function App() {
                   display: 'flex',
                   gap: 8,
                   marginBottom: 8,
+                  flexWrap: 'wrap',
                 }}
               >
                 <input
@@ -1166,7 +1220,8 @@ function App() {
                   value={itemSearchTerm}
                   onChange={(e) => setItemSearchTerm(e.target.value)}
                   style={{
-                    flex: 1,
+                    flex: '1 1 auto',
+                    maxWidth: 380,
                     padding: '6px 8px',
                     borderRadius: 8,
                     border: '1px solid rgba(148,163,184,0.7)',
@@ -1233,6 +1288,7 @@ function App() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
+                        gap: 8,
                       }}
                     >
                       <div>
@@ -1259,17 +1315,19 @@ function App() {
                           {item.is_out ? ' · (aktuell rausgenommen)' : ''}
                         </div>
                       </div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          padding: '2px 8px',
-                          borderRadius: 999,
-                          border: '1px solid rgba(148,163,184,0.7)',
-                          background: 'rgba(15,23,42,0.9)',
-                        }}
-                      >
-                        Öffnen
-                      </div>
+                      {item.photo_url && (
+                        <img
+                          src={item.photo_url}
+                          alt={item.name}
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 6,
+                            objectFit: 'cover',
+                            border: '1px solid rgba(148,163,184,0.7)',
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 ))
